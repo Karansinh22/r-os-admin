@@ -1,6 +1,7 @@
-import { Routes, Route, Navigate, useLocation } from 'react-router-dom';
+import { Routes, Route, Navigate } from 'react-router-dom';
 import { PrivateRoute } from './PrivateRoute';
 import { PublicRoute } from './PublicRoute';
+import { GuestRoute } from './GuestRoute';
 import { LoginPage } from '../pages/auth/LoginPage';
 import { OtpPage } from '../pages/auth/OtpPage';
 import { ForgotPasswordPage } from '../pages/auth/ForgotPasswordPage';
@@ -20,15 +21,24 @@ import AdminDashboard from '../pages/admin/Dashboard';
 import UsersManagement from '../pages/admin/UsersManagement';
 import CommunitiesManagement from '../pages/admin/Communities';
 import EventsManagement from '../pages/admin/Events';
-import ReportsPage from '../pages/admin/Reports';
-import AdminSettings from '../pages/admin/Settings';
-import AdminProfile from '../pages/admin/Profile';
+import EventRegistrationApprovals from '../pages/admin/EventRegistrationApprovals';
+import JoinRequests from '../pages/admin/JoinRequests';
+import MarketplaceApprovals from '../pages/admin/MarketplaceApprovals';
+import RoleChangeRequests from '../pages/admin/RoleChangeRequests';
+import PulseApprovals from '../pages/admin/PulseApprovals';
 
 /* current user roles */
 const getUserRoles = (): string[] => {
   try {
     const info = JSON.parse(localStorage.getItem('userInfo') ?? '{}');
-    return Array.isArray(info.userRoles) ? info.userRoles : ['Guest'];
+    // Handle both array and string role formats
+    if (Array.isArray(info.userRoles)) {
+      return info.userRoles;
+    }
+    if (info.role) {
+      return [info.role];
+    }
+    return ['Guest'];
   } catch {
     return ['Guest'];
   }
@@ -36,36 +46,8 @@ const getUserRoles = (): string[] => {
 
 /* Role default route mapping */
 const ROLE_DEFAULTS: Record<string, string> = {
-  SuperAdmin: '/users',
-};
-
-/* Component that decides where to redirect  */
-const RedirectByRole = () => {
-  const location = useLocation();
-  const roles = getUserRoles();
-
-  // Check if user is authenticated
-  const authToken = localStorage.getItem('auth_token');
-  
-  // Always redirect to dashboard (whether authenticated or not)
-  if (location.pathname === '/' || location.pathname === '') {
-    return <Navigate to="/dashboard" replace />;
-  }
-
-  // If we are already on a page that belongs to the user – stay there
-  if (location.pathname !== '/' && location.pathname !== '') {
-    return null; // let the child route render
-  }
-
-  // Find the first matching default route
-  for (const role of roles) {
-    if (ROLE_DEFAULTS[role]) {
-      return <Navigate to={ROLE_DEFAULTS[role]} replace />;
-    }
-  }
-
-  // Fallback for all users
-  return <Navigate to="/dashboard" replace />;
+  SuperAdmin: '/admin/users',
+  Admin: '/admin/dashboard',
 };
 
 /* ────── Main router ────── */
@@ -79,26 +61,28 @@ export const AppRoutes = () => {
       <Route path="/dashboard" element={<UserDashboard />} />
       
       {/* COMMUNITY DASHBOARD - Individual community view */}
-      <Route path="/community/:communityId" element={<CommunityDashboard />} />
+      <Route path="/community/:communityId" element={<GuestRoute><CommunityDashboard /></GuestRoute>} />
       
-      {/* PROFILE & SETTINGS */}
-      <Route path="/profile" element={<ProfilePage />} />
-      <Route path="/settings" element={<SettingsPage />} />
+      {/* PROFILE & SETTINGS - Require authentication */}
+      <Route path="/profile" element={<PrivateRoute><ProfilePage /></PrivateRoute>} />
+      <Route path="/settings" element={<PrivateRoute><SettingsPage /></PrivateRoute>} />
       
       {/* ADMIN PANEL - For admin users with child routes */}
-      <Route path="/admin" element={<AdminPanel />}>
+      <Route path="/admin" element={<PrivateRoute><AdminPanel /></PrivateRoute>}>
         <Route index element={<AdminDashboard />} />
         <Route path="dashboard" element={<AdminDashboard />} />
         <Route path="users" element={<UsersManagement />} />
         <Route path="communities" element={<CommunitiesManagement />} />
         <Route path="events" element={<EventsManagement />} />
-        <Route path="reports" element={<ReportsPage />} />
-        <Route path="settings" element={<AdminSettings />} />
-        <Route path="profile" element={<AdminProfile />} />
+        <Route path="event-registrations" element={<EventRegistrationApprovals />} />
+        <Route path="join-requests" element={<JoinRequests />} />
+        <Route path="marketplace-approvals" element={<MarketplaceApprovals />} />
+        <Route path="pulse-approvals" element={<PulseApprovals />} />
+        <Route path="role-requests" element={<RoleChangeRequests />} />
       </Route>
-      
+
       {/* PUBLIC COMMUNITY EVENTS PAGE */}
-      <Route path="/events" element={<CommunityEventsPage />} />
+      <Route path="/events" element={<GuestRoute><CommunityEventsPage /></GuestRoute>} />
 
       {/* PUBLIC AUTH ROUTES */}
       <Route
@@ -142,8 +126,8 @@ export const AppRoutes = () => {
         }
       />
 
-      {/* Global catch-all - redirect to dashboard */}
-      <Route path="*" element={<Navigate to="/dashboard" replace />} />
+      {/* Global catch-all - redirect to landing page */}
+      <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>
   );
 };
